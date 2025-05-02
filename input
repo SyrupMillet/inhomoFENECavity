@@ -1,0 +1,41 @@
+# Parallelization
+Partition : 8 1 1
+
+# Mesh definition
+Lx : 0.005
+Ly : 0.005
+Lz : 0.00006
+nx : 96
+ny : 96
+nz : 1
+
+# Solvent properties
+Dynamic viscosity:          0.01                # \eta_s
+Density :                   1000
+
+inflow velocity : 0.1                           # U
+
+# Polymer field
+Polymer interface concentration : 0.3       
+diffusion coefficient : 5e-6                    # D
+
+# Non-Newtonian modeling                
+Polymer relaxation time :       0.1            # \lambda_r
+Maximum polymer extensibility : 50               # L
+Max polymer-contributed viscosity : 2.0         # \eta_p
+
+# Time integration
+Max timestep size : 2e-4
+Max cfl number :    0.95
+Max time :          20
+
+# Ensight output
+Ensight output period : 1e-1
+
+# Pressure solver
+Pressure tolerance : 	1e-6
+Pressure iteration : 	100
+
+# Implicit velocity solver
+Implicit tolerance : 	1e-6
+Implicit iteration : 	100
