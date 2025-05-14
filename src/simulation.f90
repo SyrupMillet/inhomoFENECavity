@@ -781,7 +781,7 @@ contains
             viscoelastic_src: block
                use viscoelastic_class, only: fenep,lptt,eptt
                ! Streching and distortion term
-               call ve%get_CgradU(gradu,SCtmp)
+               call ve%get_DgradU(gradu,SCtmp)
                ! build half-step D and C
                ! SCtmp2 = ve%SCold+time%dt*resSC
                ! call ve%getCFtensor(D=SCtmp2, phi=vf%SC, C=ve%tsrC)

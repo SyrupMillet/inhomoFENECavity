@@ -21,7 +21,7 @@ module viscoelastic_class
    integer, parameter, public :: lptt=4              !< Linear Phan-Thien-Tanner model
    integer, parameter, public :: eptt=5              !< Exponential Phan-Thien-Tanner model
 
-   real(WP) :: threshold = 1.0E-9_WP
+   real(WP) :: threshold = 1.0E-12_WP
 
 
    !> Constant density viscoelastic solver object definition
@@ -40,7 +40,7 @@ module viscoelastic_class
 
    contains
       procedure :: init                                    !< Viscoelastic model initialization (different name is used because of extension)
-      procedure :: get_CgradU                              !< Calculate streching and distrortion term
+      procedure :: get_DgradU                              !< Calculate streching and distrortion term
       procedure :: get_relax                               !< Calculate relaxation term
       procedure :: get_affine                              !< Source term in PTT equation for non-affine motion
 
@@ -70,7 +70,7 @@ contains
    end subroutine init
 
    !> Get CgradU source terms to add to multiscalar residual
-   subroutine get_CgradU(this,gradU,resSC)
+   subroutine get_DgradU(this,gradU,resSC)
       implicit none
       class(viscoelastic), intent(inout) :: this
       real(WP), dimension(1:,1:,this%cfg%imino_:,this%cfg%jmino_:,this%cfg%kmino_:), intent(in) :: gradU
@@ -100,7 +100,7 @@ contains
             end do
          end do
       end do
-   end subroutine get_CgradU
+   end subroutine get_DgradU
 
    !> Get S*C terms for PTT equation
    subroutine get_affine(this,SR,resSC)

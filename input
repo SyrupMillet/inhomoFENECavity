@@ -21,7 +21,7 @@ diffusion coefficient : 5e-5                    # D
 
 # Non-Newtonian modeling                
 Polymer relaxation time :       1.0            # \lambda_r
-Maximum polymer extensibility : 50               # L
+Maximum polymer extensibility : 6               # L
 Max polymer-contributed viscosity : 5.0         # \eta_p
 
 # Time integration
