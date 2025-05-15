@@ -52,6 +52,7 @@ module simulation
 
    real(WP) :: inflowVelocity
    real(WP) :: surfaceConc
+   real(WP) :: percentOccupied, Lx
 
    real(WP) :: polydiff
    real(WP), dimension(:,:,:), allocatable:: polyVisc
@@ -307,26 +308,116 @@ contains
    end function right_of_domain
 
    !> Function that localizes the bottom (y-) of the domain
-   function bottom_of_domain(pg,i,j,k) result(isIn)
+   ! function bottom_of_domain(pg,i,j,k) result(isIn)
+   !    use pgrid_class, only: pgrid
+   !    implicit none
+   !    class(pgrid), intent(in) :: pg
+   !    integer, intent(in) :: i,j,k
+   !    logical :: isIn
+   !    isIn=.false.
+   !    if (j.eq.pg%jmin) isIn=.true.
+   ! end function bottom_of_domain
+
+   function flatPlate(pg,i,j,k) result(isIn)
       use pgrid_class, only: pgrid
       implicit none
       class(pgrid), intent(in) :: pg
       integer, intent(in) :: i,j,k
-      logical :: isIn
+      logical :: isIn, isflatPlate
       isIn=.false.
-      if (j.eq.pg%jmin) isIn=.true.
-   end function bottom_of_domain
+      if ((cfg%xm(i).gt.0.5_WP*(1.0_WP-percentOccupied)*Lx).and.(cfg%xm(i).lt.0.5_WP*(1.0_WP+percentOccupied)*Lx)) then
+         isflatPlate = .true.
+      else
+         isflatPlate = .false.
+      end if
+      if (j.eq.pg%jmin .and. isflatPlate) isIn=.true.
+   end function flatPlate
+
+   function flatPlate_front(pg,i,j,k) result(isIn)
+      use pgrid_class, only: pgrid
+      implicit none
+      class(pgrid), intent(in) :: pg
+      integer, intent(in) :: i,j,k
+      logical :: isIn, isfront
+      isIn=.false.
+      if ((cfg%xm(i).lt.0.5_WP*(1.0_WP-percentOccupied)*Lx)) then
+         isfront = .true.
+      else
+         isfront = .false.
+      end if
+      if (j.eq.pg%jmin .and. isfront) isIn=.true.
+   end function flatPlate_front
+
+   function flatPlate_back(pg,i,j,k) result(isIn)
+      use pgrid_class, only: pgrid
+      implicit none
+      class(pgrid), intent(in) :: pg
+      integer, intent(in) :: i,j,k
+      logical :: isIn, isback
+      isIn=.false.
+      if ((cfg%xm(i).gt.0.5_WP*(1.0_WP+percentOccupied)*Lx)) then
+         isback = .true.
+      else
+         isback = .false.
+      end if
+      if (j.eq.pg%jmin .and. isback) isIn=.true.
+   end function flatPlate_back
 
    !> Function that localizes the bottom (y-) of the domain for scalar
-   function bottom_of_domainsc(pg,i,j,k) result(isIn)
+   ! function bottom_of_domainsc(pg,i,j,k) result(isIn)
+   !    use pgrid_class, only: pgrid
+   !    implicit none
+   !    class(pgrid), intent(in) :: pg
+   !    integer, intent(in) :: i,j,k
+   !    logical :: isIn
+   !    isIn=.false.
+   !    if (j.eq.pg%jmin-1) isIn=.true.
+   ! end function bottom_of_domainsc
+
+   function flatPlatesc(pg,i,j,k) result(isIn)
       use pgrid_class, only: pgrid
       implicit none
       class(pgrid), intent(in) :: pg
       integer, intent(in) :: i,j,k
-      logical :: isIn
+      logical :: isIn, isflatPlate
       isIn=.false.
-      if (j.eq.pg%jmin-1) isIn=.true.
-   end function bottom_of_domainsc
+      if ((cfg%xm(i).gt.0.5_WP*(1.0_WP-percentOccupied)*Lx).and.(cfg%xm(i).lt.0.5_WP*(1.0_WP+percentOccupied)*Lx)) then
+         isflatPlate = .true.
+      else
+         isflatPlate = .false.
+      end if
+      if (j.eq.pg%jmin-1 .and. isflatPlate) isIn=.true.
+   end function flatPlatesc
+
+   function flatPlate_frontsc(pg,i,j,k) result(isIn)
+      use pgrid_class, only: pgrid
+      implicit none
+      class(pgrid), intent(in) :: pg
+      integer, intent(in) :: i,j,k
+      logical :: isIn, isfront
+      isIn=.false.
+      if ((cfg%xm(i).lt.0.5_WP*(1.0_WP-percentOccupied)*Lx)) then
+         isfront = .true.
+      else
+         isfront = .false.
+      end if
+      if (j.eq.pg%jmin-1 .and. isfront) isIn=.true.
+   end function flatPlate_frontsc
+
+   function flatPlate_backsc(pg,i,j,k) result(isIn)
+      use pgrid_class, only: pgrid
+      implicit none
+      class(pgrid), intent(in) :: pg
+      integer, intent(in) :: i,j,k
+      logical :: isIn, isback
+      isIn=.false.
+      if ((cfg%xm(i).gt.0.5_WP*(1.0_WP+percentOccupied)*Lx)) then
+         isback = .true.
+      else
+         isback = .false.
+      end if
+      if (j.eq.pg%jmin-1 .and. isback) isIn=.true.
+   end function flatPlate_backsc
 
    !> Function that localizes the top (y+) of the domain
    function top_of_domain(pg,i,j,k) result(isIn)
@@ -346,6 +437,9 @@ contains
       implicit none
 
       polyDissolved = 0.0_WP
+
+      call param_read('percent of plate in Lx', percentOccupied)
+      call param_read('Lx', Lx)
 
       ! Initialize time tracker with 1 subiterations
       initialize_timetracker: block
@@ -367,8 +461,10 @@ contains
          call fs%add_bcond(name='inflow',type=dirichlet         ,locator=left_of_domain ,face='x',dir=-1,canCorrect=.false.)
          call fs%add_bcond(name='outflow',type=clipped_neumann  ,locator=right_of_domain,face='x',dir=+1,canCorrect=.true.)
          call fs%add_bcond(name='topfreebd',type=slip           ,locator=top_of_domain,face='y',dir=+1,canCorrect=.false.)
-         call fs%add_bcond(name='bottom',type=dirichlet         ,locator=bottom_of_domain,face='y',dir=-1,canCorrect=.false.)
-
+         ! call fs%add_bcond(name='bottom',type=dirichlet         ,locator=bottom_of_domain,face='y',dir=-1,canCorrect=.false.)
+         call fs%add_bcond(name='flatPlate',type=dirichlet      ,locator=flatPlate,face='y',dir=-1,canCorrect=.false.)
+         call fs%add_bcond(name='flatPlatefront',type=clipped_neumann,locator=flatPlate_front,face='y',dir=-1,canCorrect=.true.)
+         call fs%add_bcond(name='flatPlateback',type=clipped_neumann,locator=flatPlate_back,face='y',dir=-1,canCorrect=.true.)
          ! call fs%add_bcond(name='top',type=dirichlet           ,locator=top_of_domain,face='y',dir=+1,canCorrect=.false.)
          ! call fs%add_bcond(name='bottom',type=dirichlet   ,locator=bottom_of_domain,face='y',dir=-1,canCorrect=.false.)
          ! Assign constant viscosity
@@ -395,7 +491,10 @@ contains
          call vf%add_bcond(name='inflow',type=dirichlet      ,locator=left_of_domainsc,dir='x-')
          call vf%add_bcond(name='outflow',type=neumann      ,locator=right_of_domain,dir='x+')
          call vf%add_bcond(name='top',type=neumann         ,locator=top_of_domain,dir='y+')
-         call vf%add_bcond(name='bottom',type=dirichlet      ,locator=bottom_of_domainsc,dir='y-')
+         ! call vf%add_bcond(name='bottom',type=dirichlet      ,locator=bottom_of_domainsc,dir='y-')
+         call vf%add_bcond(name='flatPlate',type=dirichlet      ,locator=flatPlatesc,dir='y-')
+         call vf%add_bcond(name='flatPlatefront',type=neumann,locator=flatPlate_frontsc,dir='y-')
+         call vf%add_bcond(name='flatPlateback',type=neumann,locator=flatPlate_backsc,dir='y-')
          ! call vf%add_bcond(name='top',type=neumann         ,locator=top_of_domain,dir='y+')
          ! call vf%add_bcond(name='bottom',type=dirichlet      ,locator=bottom_of_domainsc,dir='y-')
          ! Configure implicit scalar solver
@@ -416,7 +515,10 @@ contains
          call ve%add_bcond(name='inflow',type=dirichlet      ,locator=left_of_domainsc,dir='x-')
          call ve%add_bcond(name='outflow',type=neumann       ,locator=right_of_domain,dir='x+')
          call ve%add_bcond(name='top',type=neumann         ,locator=top_of_domain,dir='y+')
-         call ve%add_bcond(name='bottom',type=dirichlet      ,locator=bottom_of_domainsc,dir='y-')
+         ! call ve%add_bcond(name='bottom',type=dirichlet      ,locator=bottom_of_domainsc,dir='y-')
+         call ve%add_bcond(name='flatPlate',type=dirichlet      ,locator=flatPlatesc,dir='y-')
+         call ve%add_bcond(name='flatPlatefront',type=neumann,locator=flatPlate_frontsc,dir='y-')
+         call ve%add_bcond(name='flatPlateback',type=neumann,locator=flatPlate_backsc,dir='y-')
          ! call ve%add_bcond(name='top',type=neumann         ,locator=top_of_domain,dir='y+')
          ! call ve%add_bcond(name='bottom',type=dirichlet    ,locator=bottom_of_domainsc,dir='y-')
          ! Maximum extensibility of polymer chain
@@ -491,7 +593,7 @@ contains
             fs%U(i,j,k) = inflowVelocity ; fs%rhoU(i,j,k) = rho*inflowVelocity
             fs%V(i-1,j,k) = 0.0_WP ; fs%rhoV(i-1,j,k) = rho*0.0_WP
          end do
-         call fs%get_bcond('bottom',mybc)
+         call fs%get_bcond('flatPlate',mybc)
          do n=1,mybc%itr%no_
             i=mybc%itr%map(1,n); j=mybc%itr%map(2,n); k=mybc%itr%map(3,n)
             fs%U(i,j,k) = 0.0_WP ; fs%rhoU(i,j,k) = rho*0.0_WP
@@ -527,7 +629,7 @@ contains
             i=mybc%itr%map(1,n); j=mybc%itr%map(2,n); k=mybc%itr%map(3,n)
             vf%SC(i,j,k) = 0.0_WP
          end do
-         call vf%get_bcond('bottom',mybc)
+         call vf%get_bcond('flatPlate',mybc)
          do n=1,mybc%itr%no_
             i=mybc%itr%map(1,n); j=mybc%itr%map(2,n); k=mybc%itr%map(3,n)
             vf%SC(i,j,k) = surfaceConc
@@ -568,7 +670,7 @@ contains
                i=mybc%itr%map(1,n); j=mybc%itr%map(2,n); k=mybc%itr%map(3,n)
                ve%SC(i,j,k,:) = 0.0_WP*identity
             end do
-            call ve%get_bcond('bottom',mybc)
+            call ve%get_bcond('flatPlate',mybc)
             do n=1,mybc%itr%no_
                i=mybc%itr%map(1,n); j=mybc%itr%map(2,n); k=mybc%itr%map(3,n)
                ve%SC(i,j,k,:) = identity*surfaceConc
@@ -588,7 +690,7 @@ contains
       create_ensight: block
          integer :: i, nsc
          ! Create Ensight output from cfg
-         ens_out=ensight(cfg=cfg,name='cavity')
+         ens_out=ensight(cfg=cfg,name='flatPlate')
          ! Create event for Ensight output
          ens_evt=event(time=time,name='Ensight output')
          call param_read('Ensight output period',ens_evt%tper)
@@ -768,7 +870,7 @@ contains
                   i=mybc%itr%map(1,n); j=mybc%itr%map(2,n); k=mybc%itr%map(3,n)
                   vf%SC(i,j,k) = 0.0_WP
                end do
-               call vf%get_bcond('bottom',mybc)
+               call vf%get_bcond('flatPlate',mybc)
                do n=1,mybc%itr%no_
                   i=mybc%itr%map(1,n); j=mybc%itr%map(2,n); k=mybc%itr%map(3,n)
                   vf%SC(i,j,k) = surfaceConc
@@ -837,7 +939,7 @@ contains
                   i=mybc%itr%map(1,n); j=mybc%itr%map(2,n); k=mybc%itr%map(3,n)
                   ve%SC(i,j,k,:) = 0.0_WP*identity
                end do
-               call ve%get_bcond('bottom',mybc)
+               call ve%get_bcond('flatPlate',mybc)
                do n=1,mybc%itr%no_
                   i=mybc%itr%map(1,n); j=mybc%itr%map(2,n); k=mybc%itr%map(3,n)
                   ve%SC(i,j,k,:) = identity*surfaceConc
@@ -956,7 +1058,7 @@ contains
                   fs%U(i,j,k) = inflowVelocity ; fs%rhoU(i,j,k) = rho*inflowVelocity
                   fs%V(i-1,j,k) = 0.0_WP ; fs%rhoV(i-1,j,k) = rho*0.0_WP
                end do
-               call fs%get_bcond('bottom',mybc)
+               call fs%get_bcond('flatPlate',mybc)
                do n=1,mybc%itr%no_
                   i=mybc%itr%map(1,n); j=mybc%itr%map(2,n); k=mybc%itr%map(3,n)
                   fs%U(i,j,k) = 0.0_WP ; fs%rhoU(i,j,k) = rho*0.0_WP
