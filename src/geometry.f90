@@ -68,7 +68,7 @@ contains
          end do
 
          ! General serial grid object
-         grid=sgrid(coord=cartesian,no=2,x=x,y=y,z=z,xper=.true.,yper=.false.,zper=.true.,name='box')
+         grid=sgrid(coord=cartesian,no=2,x=x,y=y,z=z,xper=.false.,yper=.false.,zper=.true.,name='box')
 
       end block create_grid
 
@@ -90,15 +90,15 @@ contains
          call param_read('Lx',Lx)
 
          cfg%VF=1.0_WP
-         do k = cfg%kmino_, cfg%kmaxo_
-            do j = cfg%jmino_, cfg%jmaxo_
-               do i = cfg%imino_, cfg%imaxo_
-                  if (j.lt.cfg%jmin) then
-                     cfg%VF(i,j,k)=0.0_WP
-                  end if
-               end do
-            end do
-         end do
+         ! do k = cfg%kmino_, cfg%kmaxo_
+         !    do j = cfg%jmino_, cfg%jmaxo_
+         !       do i = cfg%imino_, cfg%imaxo_
+         !          if (j.lt.cfg%jmin) then
+         !             cfg%VF(i,j,k)=0.0_WP
+         !          end if
+         !       end do
+         !    end do
+         ! end do
 
       end block create_walls
 

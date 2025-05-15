@@ -42,6 +42,7 @@ module viscoelastic_class
       procedure :: init                                    !< Viscoelastic model initialization (different name is used because of extension)
       procedure :: get_CgradU                              !< Calculate streching and distrortion term
       procedure :: get_relax                               !< Calculate relaxation term
+      procedure :: get_relax_2                             !< Calculate relaxation term
       procedure :: get_affine                              !< Source term in PTT equation for non-affine motion
 
       procedure :: getCFtensor                              !< Get conformation tensor
@@ -62,7 +63,7 @@ contains
       character(len=*), optional :: name
       ! Create a six-scalar solver for conformation tensor in the liquid
       call this%multiscalar%initialize(cfg=cfg,scheme=scheme,nscalar=6,name=name)
-      this%SCname=['Dxx','Dxy','Dxz','Dyy','Dyz','Dzz']
+      this%SCname=['Oxx','Oxy','Oxz','Oyy','Oyz','Ozz']
       allocate(this%tsrCname(6))
       this%tsrCname=['Cxx','Cxy','Cxz','Cyy','Cyz','Czz']
       ! Assign closure model for viscoelastic fluid
@@ -309,12 +310,71 @@ contains
                if (phi1 .lt. threshold) then
                   C(i,j,k,:) = identity
                else
-                  C(i,j,k,:) = D(i,j,k,:)/phi1
+                  C(i,j,k,:) = D(i,j,k,:)/(phi1+tiny(1.0_WP))
                end if
             end do
          end do
       end do
    end subroutine getCFtensor
+
+   subroutine get_relax_2(this,resSC,dt,phi,trelaxfield)
+      use messager, only: die
+      implicit none
+      class(viscoelastic), intent(inout) :: this
+      real(WP), dimension(this%cfg%imino_:,this%cfg%jmino_:,this%cfg%kmino_:,1:), intent(inout) :: resSC
+      real(WP), dimension(this%cfg%imino_:,this%cfg%jmino_:,this%cfg%kmino_:), intent(in) :: phi
+      real(WP), dimension(this%cfg%imino_:,this%cfg%jmino_:,this%cfg%kmino_:), intent(in), optional :: trelaxfield
+      real(WP), intent(in) :: dt
+      integer :: i,j,k
+      real(WP) :: coeff, trelax, phi1
+      resSC=0.0_WP
+      select case (this%model)
+       case (fenep) ! Add relaxation source for FENE-P (1/lambda)(f(r)*C-I)
+         do k=this%cfg%kmino_,this%cfg%kmaxo_
+            do j=this%cfg%jmino_,this%cfg%jmaxo_
+               do i=this%cfg%imino_,this%cfg%imaxo_
+                  if (this%mask(i,j,k).ne.0) cycle                              !< Skip non-solved cells
+                  phi1 = phi(i,j,k)
+                  if (present(trelaxfield)) then
+                     trelax=trelaxfield(i,j,k)
+                  else
+                     trelax=this%trelax
+                  end if
+                  coeff=phi1*(this%Lmax**2-3.00_WP)/(phi1*this%Lmax**2-(this%SC(i,j,k,1)+this%SC(i,j,k,4)+this%SC(i,j,k,6))+tiny(1.0_WP))
+                  resSC(i,j,k,1)=-(coeff*this%SC(i,j,k,1)-1.0_WP*phi1)/trelax !< xx tensor component
+                  resSC(i,j,k,2)=-(coeff*this%SC(i,j,k,2)-0.0_WP*phi1)/trelax !< xy tensor component
+                  resSC(i,j,k,3)=-(coeff*this%SC(i,j,k,3)-0.0_WP*phi1)/trelax !< xz tensor component
+                  resSC(i,j,k,4)=-(coeff*this%SC(i,j,k,4)-1.0_WP*phi1)/trelax !< yy tensor component
+                  resSC(i,j,k,5)=-(coeff*this%SC(i,j,k,5)-0.0_WP*phi1)/trelax !< yz tensor component
+                  resSC(i,j,k,6)=-(coeff*this%SC(i,j,k,6)-1.0_WP*phi1)/trelax !< zz tensor component
+               end do
+            end do
+         end do
+         case (oldroydb) ! Add relaxation source for Oldroyd-B (1/t_relax)(C-I)
+         do k=this%cfg%kmino_,this%cfg%kmaxo_
+            do j=this%cfg%jmino_,this%cfg%jmaxo_
+               do i=this%cfg%imino_,this%cfg%imaxo_
+                  if (this%mask(i,j,k).ne.0) cycle                              !< Skip non-solved cells
+                  phi1 = phi(i,j,k)
+                  if (present(trelaxfield)) then
+                     trelax=trelaxfield(i,j,k)
+                  else
+                     trelax=this%trelax
+                  end if
+                  coeff=1.0_WP/trelax                                      !< Inverse of relaxation time
+                  resSC(i,j,k,1)=-coeff*(this%SC(i,j,k,1)-1.0_WP*phi1) !> xx tensor component
+                  resSC(i,j,k,2)=-coeff*(this%SC(i,j,k,2)-0.0_WP*phi1) !> xy tensor component
+                  resSC(i,j,k,3)=-coeff*(this%SC(i,j,k,3)-0.0_WP*phi1) !> xz tensor component
+                  resSC(i,j,k,4)=-coeff*(this%SC(i,j,k,4)-1.0_WP*phi1) !> yy tensor component
+                  resSC(i,j,k,5)=-coeff*(this%SC(i,j,k,5)-0.0_WP*phi1) !> yz tensor component
+                  resSC(i,j,k,6)=-coeff*(this%SC(i,j,k,6)-1.0_WP*phi1) !> zz tensor component
+               end do
+            end do
+         end do
+      case default
+         call die('[tpviscoelastic get_relax] Unknown viscoelastic model selected')
+      end select
+   end subroutine get_relax_2
 
 
 end module viscoelastic_class

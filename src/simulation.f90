@@ -308,15 +308,15 @@ contains
    end function right_of_domain
 
    !> Function that localizes the bottom (y-) of the domain
-   ! function bottom_of_domain(pg,i,j,k) result(isIn)
-   !    use pgrid_class, only: pgrid
-   !    implicit none
-   !    class(pgrid), intent(in) :: pg
-   !    integer, intent(in) :: i,j,k
-   !    logical :: isIn
-   !    isIn=.false.
-   !    if (j.eq.pg%jmin) isIn=.true.
-   ! end function bottom_of_domain
+   function bottom_of_domain(pg,i,j,k) result(isIn)
+      use pgrid_class, only: pgrid
+      implicit none
+      class(pgrid), intent(in) :: pg
+      integer, intent(in) :: i,j,k
+      logical :: isIn
+      isIn=.false.
+      if (j.eq.pg%jmin) isIn=.true.
+   end function bottom_of_domain
 
    function flatPlate(pg,i,j,k) result(isIn)
       use pgrid_class, only: pgrid
@@ -364,15 +364,15 @@ contains
    end function flatPlate_back
 
    !> Function that localizes the bottom (y-) of the domain for scalar
-   ! function bottom_of_domainsc(pg,i,j,k) result(isIn)
-   !    use pgrid_class, only: pgrid
-   !    implicit none
-   !    class(pgrid), intent(in) :: pg
-   !    integer, intent(in) :: i,j,k
-   !    logical :: isIn
-   !    isIn=.false.
-   !    if (j.eq.pg%jmin-1) isIn=.true.
-   ! end function bottom_of_domainsc
+   function bottom_of_domainsc(pg,i,j,k) result(isIn)
+      use pgrid_class, only: pgrid
+      implicit none
+      class(pgrid), intent(in) :: pg
+      integer, intent(in) :: i,j,k
+      logical :: isIn
+      isIn=.false.
+      if (j.eq.pg%jmin-1) isIn=.true.
+   end function bottom_of_domainsc
 
    function flatPlatesc(pg,i,j,k) result(isIn)
       use pgrid_class, only: pgrid
@@ -460,13 +460,12 @@ contains
          ! Define bc
          call fs%add_bcond(name='inflow',type=dirichlet         ,locator=left_of_domain ,face='x',dir=-1,canCorrect=.false.)
          call fs%add_bcond(name='outflow',type=clipped_neumann  ,locator=right_of_domain,face='x',dir=+1,canCorrect=.true.)
-         call fs%add_bcond(name='topfreebd',type=slip           ,locator=top_of_domain,face='y',dir=+1,canCorrect=.false.)
-         ! call fs%add_bcond(name='bottom',type=dirichlet         ,locator=bottom_of_domain,face='y',dir=-1,canCorrect=.false.)
+         call fs%add_bcond(name='top',type=slip           ,locator=top_of_domain,face='y',dir=+1,canCorrect=.false.)
+         !call fs%add_bcond(name='flatPlate',type=dirichlet         ,locator=bottom_of_domain,face='y',dir=-1,canCorrect=.false.)
          call fs%add_bcond(name='flatPlate',type=dirichlet      ,locator=flatPlate,face='y',dir=-1,canCorrect=.false.)
          call fs%add_bcond(name='flatPlatefront',type=clipped_neumann,locator=flatPlate_front,face='y',dir=-1,canCorrect=.true.)
          call fs%add_bcond(name='flatPlateback',type=clipped_neumann,locator=flatPlate_back,face='y',dir=-1,canCorrect=.true.)
-         ! call fs%add_bcond(name='top',type=dirichlet           ,locator=top_of_domain,face='y',dir=+1,canCorrect=.false.)
-         ! call fs%add_bcond(name='bottom',type=dirichlet   ,locator=bottom_of_domain,face='y',dir=-1,canCorrect=.false.)
+
          ! Assign constant viscosity
          call param_read('Dynamic viscosity',visc); fs%visc=visc
          ! Assign constant density
@@ -491,12 +490,11 @@ contains
          call vf%add_bcond(name='inflow',type=dirichlet      ,locator=left_of_domainsc,dir='x-')
          call vf%add_bcond(name='outflow',type=neumann      ,locator=right_of_domain,dir='x+')
          call vf%add_bcond(name='top',type=neumann         ,locator=top_of_domain,dir='y+')
-         ! call vf%add_bcond(name='bottom',type=dirichlet      ,locator=bottom_of_domainsc,dir='y-')
+         !call vf%add_bcond(name='flatPlate',type=dirichlet      ,locator=bottom_of_domainsc,dir='y-')
          call vf%add_bcond(name='flatPlate',type=dirichlet      ,locator=flatPlatesc,dir='y-')
          call vf%add_bcond(name='flatPlatefront',type=neumann,locator=flatPlate_frontsc,dir='y-')
          call vf%add_bcond(name='flatPlateback',type=neumann,locator=flatPlate_backsc,dir='y-')
-         ! call vf%add_bcond(name='top',type=neumann         ,locator=top_of_domain,dir='y+')
-         ! call vf%add_bcond(name='bottom',type=dirichlet      ,locator=bottom_of_domainsc,dir='y-')
+
          ! Configure implicit scalar solver
          vfs = ddadi(cfg=cfg,name='Volume fraction',nst=13)
          ! Setup the solver
@@ -515,18 +513,18 @@ contains
          call ve%add_bcond(name='inflow',type=dirichlet      ,locator=left_of_domainsc,dir='x-')
          call ve%add_bcond(name='outflow',type=neumann       ,locator=right_of_domain,dir='x+')
          call ve%add_bcond(name='top',type=neumann         ,locator=top_of_domain,dir='y+')
-         ! call ve%add_bcond(name='bottom',type=dirichlet      ,locator=bottom_of_domainsc,dir='y-')
+         ! call ve%add_bcond(name='flatPlate',type=dirichlet      ,locator=bottom_of_domainsc,dir='y-')
          call ve%add_bcond(name='flatPlate',type=dirichlet      ,locator=flatPlatesc,dir='y-')
          call ve%add_bcond(name='flatPlatefront',type=neumann,locator=flatPlate_frontsc,dir='y-')
          call ve%add_bcond(name='flatPlateback',type=neumann,locator=flatPlate_backsc,dir='y-')
-         ! call ve%add_bcond(name='top',type=neumann         ,locator=top_of_domain,dir='y+')
-         ! call ve%add_bcond(name='bottom',type=dirichlet    ,locator=bottom_of_domainsc,dir='y-')
+
          ! Maximum extensibility of polymer chain
          call param_read('Maximum polymer extensibility',ve%Lmax)
          ! Relaxation time for polymer
          call param_read('Polymer relaxation time',ve%trelax)
          ! Maximum  polymer-contributed viscosity
          call param_read('Max polymer-contributed viscosity',maxPolyVisc)
+         ve%visc_p = maxPolyVisc
          ! Configure implicit scalar solver
          ves=ddadi(cfg=cfg,name='ct',nst=13)
          ! Setup the solver
@@ -646,6 +644,7 @@ contains
          integer :: n,i,j,k
 
          ve%diff = polydiff
+         ! ve%diff = 0.0_WP
          ve%rho = rho
 
          !> Allocate storage for reconstructured C
@@ -765,11 +764,11 @@ contains
          use param,       only: param_read
          type(monitor) :: sysfile
          real(WP) :: We, Re, delta, shearRate, beta
-         real(WP) :: charL, Lx
+         real(WP) :: charL!, Lx
 
-         call param_read('Lx',Lx)
+         ! call param_read('Lx',Lx)
 
-         charL = 0.5_WP*Lx
+         charL = 0.5_WP*Lx*percentOccupied
          ! Reynolds number for flat plate
          Re = rho*inflowVelocity*charL/visc
          ! Get boundary layer thickness from Blasius solution
@@ -840,6 +839,9 @@ contains
             ! Buid mid-time volume fraction
             vf%SC=0.5_WP*(vf%SC+vf%SCold)
 
+            ! Build mid-time scalar
+            ve%SC=0.5_WP*(ve%SC+ve%SCold)
+
             ! ==================== Volume Fraction Solver ==================
             call vf%metric_reset()
             ! Assembly of explicit residual
@@ -881,34 +883,22 @@ contains
 
             ! Calculate grad(U)
             call fs%get_gradu(gradu)
-            call applyExtraGradU()
+            ! call applyExtraGradU()
 
             call ve%metric_reset()
-            ! Build mid-time scalar
-            ve%SC=0.5_WP*(ve%SC+ve%SCold)
-
-            ! call ve%get_drhoSCdt(resSC,fs%Uold,fs%Vold,fs%Wold)
-            ! ! Assemble explicit residual
-            ! resSC=-2.0_WP*(ve%SC-ve%SCold)+time%dt*resSC
-            ! ! Apply it to get explicit scalar prediction
-            ! SCtmp=2.0_WP*ve%SC-ve%SCold+resSC
-
             scbqflag = .true.
             call ve%metric_adjust(SCtmp,scbqflag)
 
             call ve%get_drhoSCdt(resSC,fs%Uold,fs%Vold,fs%Wold)
 
             ! Add viscoleastic source terms
-            viscoelastic_src: block
-               use viscoelastic_class, only: fenep,lptt,eptt
-               ! Streching and distortion term
-               call ve%get_CgradU(gradu,SCtmp)
-               ! build half-step D and C
-               ! SCtmp2 = ve%SCold+time%dt*resSC
-               ! call ve%getCFtensor(D=SCtmp2, phi=vf%SC, C=ve%tsrC)
-               ! Relaxation term
-               call ve%get_relax(resSC=SCtmp2, dt=time%dt)
-            end block viscoelastic_src
+            ! viscoelastic_src: block
+            !    use viscoelastic_class, only: fenep,lptt,eptt
+            !    ! Streching and distortion term
+            !    call ve%get_CgradU(gradu,SCtmp)
+            !    ! Relaxation term
+            !    call ve%get_relax_2(resSC=SCtmp2, dt=time%dt, phi=vf%SCold)
+            ! end block viscoelastic_src
 
             do k=cfg%kmino_,cfg%kmaxo_
                do j=cfg%jmino_,cfg%jmaxo_
@@ -916,17 +906,15 @@ contains
                      resSC(i,j,k,:) = time%dt*resSC(i,j,k,:) &
                         -2.0_WP*ve%SC(i,j,k,:)+2.0_WP*ve%SCold(i,j,k,:) &
                         +time%dt*SCtmp(i,j,k,:) &
-                        +time%dt*SCtmp2(i,j,k,:)*vf%SC(i,j,k)
+                        +time%dt*SCtmp2(i,j,k,:)
                   end do
                end do
             end do
 
-            call ve%solve_implicit(time%dt,resSC,fs%U,fs%V,fs%W)
+            call ve%solve_implicit(time%dt,resSC,fs%Uold,fs%Vold,fs%Wold)
 
             ! Update scalars
             ve%SC = 2.0_WP*ve%SC-ve%SCold+resSC
-
-            call ve%getCFtensor(D=ve%SC, phi=vf%SC, C=ve%tsrC)
 
             ! Apply all other boundary conditions on the resulting field
             call ve%apply_bcond(time%t,time%dt)
@@ -974,14 +962,14 @@ contains
                ! Build liquid stress tensor
                select case (ve%model)
                 case (fenep, oldroydb)
-                  call ve%get_relax(stress,time%dt)
+                  call ve%get_relax_2(resSC=stress, dt=time%dt, phi=vf%SC)
                   do k=cfg%kmino_,cfg%kmaxo_
                      do j=cfg%jmino_,cfg%jmaxo_
                         do i=cfg%imino_,cfg%imaxo_
                            if (ve%mask(i,j,k).ne.0) cycle                !< Skip non-solved cells
-                           mixvisc = polyVisc(i,j,k)
+                           ! mixvisc = polyVisc(i,j,k)
                            do n=1,6
-                              stress(i,j,k,n)=-mixvisc*stress(i,j,k,n)
+                              stress(i,j,k,n)=-ve%visc_p*stress(i,j,k,n)
                            end do
                         end do
                      end do
@@ -1098,6 +1086,8 @@ contains
 
          call computeDiffU()
          call getPolyDissolved()
+
+         call ve%getCFtensor(D=ve%SC, phi=vf%SC, C=ve%tsrC)
 
          ! Output to ensight
          if (ens_evt%occurs()) then
