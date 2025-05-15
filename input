@@ -2,25 +2,25 @@
 Partition : 1 8 1
 
 # Mesh definition
-Lx : 0.005
+Lx : 0.01
 Ly : 0.005
 Lz : 0.00006
-nx : 96
-ny : 96
+nx : 256
+ny : 128
 nz : 1
 
 # Solvent properties
 Dynamic viscosity:          0.01                # \eta_s
 Density :                   1000
 
-cavity velocity : 0.1                           # U
+inflow velocity : 0.1                           # U
 
 # Polymer field
 Polymer interface concentration : 0.3       
-diffusion coefficient : 5e-5                    # D
+diffusion coefficient : 5e-6                    # D
 
 # Non-Newtonian modeling                
-Polymer relaxation time :       1.0            # \lambda_r
+Polymer relaxation time :       0.1            # \lambda_r
 Maximum polymer extensibility : 50               # L
 Max polymer-contributed viscosity : 5.0         # \eta_p
 
@@ -30,7 +30,7 @@ Max cfl number :    0.95
 Max time :          20
 
 # Ensight output
-Ensight output period : 1e-1
+Ensight output period : 1e-2
 
 # Pressure solver
 Pressure tolerance : 	1e-6

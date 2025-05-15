@@ -307,7 +307,7 @@ contains
                if (this%mask(i,j,k).ne.0) cycle
                phi1=phi(i,j,k)
                if (phi1 .lt. threshold) then
-                  C(i,j,k,:)=identity
+                  C(i,j,k,:) = identity
                else
                   C(i,j,k,:) = D(i,j,k,:)/phi1
                end if
