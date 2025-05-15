@@ -50,7 +50,7 @@ module simulation
    real(WP), dimension(:,:,:,:),   allocatable :: stress
    real(WP), dimension(:,:,:,:,:), allocatable :: gradU
 
-   real(WP) :: cavitySpeed
+   real(WP) :: inflowVelocity
    real(WP) :: surfaceConc
 
    real(WP) :: polydiff
@@ -364,13 +364,13 @@ contains
          ! Create flow solver
          fs=lowmach(cfg=cfg,name='Variable density low Mach NS')
          ! Define bc
-         !call fs%add_bcond(name='inflow',type=dirichlet         ,locator=left_of_domain ,face='x',dir=-1,canCorrect=.false.)
-         !call fs%add_bcond(name='outflow',type=clipped_neumann  ,locator=right_of_domain,face='x',dir=+1,canCorrect=.true.)
-         !call fs%add_bcond(name='topfreebd',type=slip           ,locator=top_of_domain,face='y',dir=+1,canCorrect=.false.)
-         !call fs%add_bcond(name='bottom',type=dirichlet         ,locator=bottom_of_domain,face='y',dir=-1,canCorrect=.false.)
-         !call fs%add_bcond(name='bottom_m',type=clipped_neumann ,locator=bottom_of_domain_m,face='y',dir=-1,canCorrect=.true.)
-         call fs%add_bcond(name='top',type=dirichlet           ,locator=top_of_domain,face='y',dir=+1,canCorrect=.false.)
-         call fs%add_bcond(name='bottom',type=dirichlet   ,locator=bottom_of_domain,face='y',dir=-1,canCorrect=.false.)
+         call fs%add_bcond(name='inflow',type=dirichlet         ,locator=left_of_domain ,face='x',dir=-1,canCorrect=.false.)
+         call fs%add_bcond(name='outflow',type=clipped_neumann  ,locator=right_of_domain,face='x',dir=+1,canCorrect=.true.)
+         call fs%add_bcond(name='topfreebd',type=slip           ,locator=top_of_domain,face='y',dir=+1,canCorrect=.false.)
+         call fs%add_bcond(name='bottom',type=dirichlet         ,locator=bottom_of_domain,face='y',dir=-1,canCorrect=.false.)
+
+         ! call fs%add_bcond(name='top',type=dirichlet           ,locator=top_of_domain,face='y',dir=+1,canCorrect=.false.)
+         ! call fs%add_bcond(name='bottom',type=dirichlet   ,locator=bottom_of_domain,face='y',dir=-1,canCorrect=.false.)
          ! Assign constant viscosity
          call param_read('Dynamic viscosity',visc); fs%visc=visc
          ! Assign constant density
@@ -392,11 +392,12 @@ contains
          ! Create volume fraction scalar solver
          vf=vdscalar(cfg=cfg,scheme=bquick,name='Volume fraction')
          ! Define bc
-         ! call vf%add_bcond(name='inflow',type=dirichlet      ,locator=left_of_domainsc,dir='x-')
-         ! call vf%add_bcond(name='outflow',type=neumann      ,locator=right_of_domain,dir='x+')
-         ! call vf%add_bcond(name='bottom',type=dirichlet      ,locator=bottom_of_domainsc,dir='y-')
+         call vf%add_bcond(name='inflow',type=dirichlet      ,locator=left_of_domainsc,dir='x-')
+         call vf%add_bcond(name='outflow',type=neumann      ,locator=right_of_domain,dir='x+')
          call vf%add_bcond(name='top',type=neumann         ,locator=top_of_domain,dir='y+')
          call vf%add_bcond(name='bottom',type=dirichlet      ,locator=bottom_of_domainsc,dir='y-')
+         ! call vf%add_bcond(name='top',type=neumann         ,locator=top_of_domain,dir='y+')
+         ! call vf%add_bcond(name='bottom',type=dirichlet      ,locator=bottom_of_domainsc,dir='y-')
          ! Configure implicit scalar solver
          vfs = ddadi(cfg=cfg,name='Volume fraction',nst=13)
          ! Setup the solver
@@ -412,11 +413,12 @@ contains
          ! Create FENE model solver
          call ve%init(cfg=cfg,model=fenep,scheme=bquick,name='FENE')
          ! Define bc
-         ! call ve%add_bcond(name='inflow',type=dirichlet      ,locator=left_of_domainsc,dir='x-')
-         ! call ve%add_bcond(name='outflow',type=neumann       ,locator=right_of_domain,dir='x+')
-         ! call ve%add_bcond(name='bottom',type=dirichlet      ,locator=bottom_of_domainsc,dir='y-')
+         call ve%add_bcond(name='inflow',type=dirichlet      ,locator=left_of_domainsc,dir='x-')
+         call ve%add_bcond(name='outflow',type=neumann       ,locator=right_of_domain,dir='x+')
          call ve%add_bcond(name='top',type=neumann         ,locator=top_of_domain,dir='y+')
-         call ve%add_bcond(name='bottom',type=dirichlet    ,locator=bottom_of_domainsc,dir='y-')
+         call ve%add_bcond(name='bottom',type=dirichlet      ,locator=bottom_of_domainsc,dir='y-')
+         ! call ve%add_bcond(name='top',type=neumann         ,locator=top_of_domain,dir='y+')
+         ! call ve%add_bcond(name='bottom',type=dirichlet    ,locator=bottom_of_domainsc,dir='y-')
          ! Maximum extensibility of polymer chain
          call param_read('Maximum polymer extensibility',ve%Lmax)
          ! Relaxation time for polymer
@@ -480,13 +482,13 @@ contains
          call fs%rho_multiply()
          ! Apply all other boundary conditions
          ! Read the shear velocity
-         call param_read('cavity velocity',cavitySpeed)
+         call param_read('inflow velocity',inflowVelocity)
 
          call fs%apply_bcond(time%t,time%dt)
-         call fs%get_bcond('top',mybc)
+         call fs%get_bcond('inflow',mybc)
          do n=1,mybc%itr%no_
             i=mybc%itr%map(1,n); j=mybc%itr%map(2,n); k=mybc%itr%map(3,n)
-            fs%U(i,j,k) = cavitySpeed ; fs%rhoU(i,j,k) = rho*cavitySpeed
+            fs%U(i,j,k) = inflowVelocity ; fs%rhoU(i,j,k) = rho*inflowVelocity
             fs%V(i-1,j,k) = 0.0_WP ; fs%rhoV(i-1,j,k) = rho*0.0_WP
          end do
          call fs%get_bcond('bottom',mybc)
@@ -520,6 +522,11 @@ contains
 
          call vf%apply_bcond(time%t,time%dt)
          ! Apply all other boundary conditions
+         call vf%get_bcond('inflow',mybc)
+         do n=1,mybc%itr%no_
+            i=mybc%itr%map(1,n); j=mybc%itr%map(2,n); k=mybc%itr%map(3,n)
+            vf%SC(i,j,k) = 0.0_WP
+         end do
          call vf%get_bcond('bottom',mybc)
          do n=1,mybc%itr%no_
             i=mybc%itr%map(1,n); j=mybc%itr%map(2,n); k=mybc%itr%map(3,n)
@@ -556,6 +563,11 @@ contains
             use multiscalar_class, only: bcond
             type(bcond), pointer :: mybc
             integer :: n,i,j,k
+            call ve%get_bcond('inflow',mybc)
+            do n=1,mybc%itr%no_
+               i=mybc%itr%map(1,n); j=mybc%itr%map(2,n); k=mybc%itr%map(3,n)
+               ve%SC(i,j,k,:) = 0.0_WP*identity
+            end do
             call ve%get_bcond('bottom',mybc)
             do n=1,mybc%itr%no_
                i=mybc%itr%map(1,n); j=mybc%itr%map(2,n); k=mybc%itr%map(3,n)
@@ -651,15 +663,17 @@ contains
          use param,       only: param_read
          type(monitor) :: sysfile
          real(WP) :: We, Re, delta, shearRate, beta
-         real(WP) :: charL
+         real(WP) :: charL, Lx
 
-         call param_read('Lx',charL)
+         call param_read('Lx',Lx)
+
+         charL = 0.5_WP*Lx
          ! Reynolds number for flat plate
-         Re = rho*cavitySpeed*charL/visc
+         Re = rho*inflowVelocity*charL/visc
          ! Get boundary layer thickness from Blasius solution
-         call param_read('Ly',delta)
+         delta = 4.99_WP*charL/sqrt(Re)
          ! Get shear rate
-         shearRate = cavitySpeed/delta
+         shearRate = inflowVelocity/delta
          ! Get Weissenberg number
          We = shearRate*ve%trelax
          ! Ratio of polymer viscosity to solvent viscosity
@@ -749,6 +763,11 @@ contains
                type(bcond), pointer :: mybc
                integer :: n,i,j,k
                ! Apply all other boundary conditions
+               call vf%get_bcond('inflow',mybc)
+               do n=1,mybc%itr%no_
+                  i=mybc%itr%map(1,n); j=mybc%itr%map(2,n); k=mybc%itr%map(3,n)
+                  vf%SC(i,j,k) = 0.0_WP
+               end do
                call vf%get_bcond('bottom',mybc)
                do n=1,mybc%itr%no_
                   i=mybc%itr%map(1,n); j=mybc%itr%map(2,n); k=mybc%itr%map(3,n)
@@ -813,6 +832,11 @@ contains
                use multiscalar_class, only: bcond
                type(bcond), pointer :: mybc
                integer :: n,i,j,k
+               call ve%get_bcond('inflow',mybc)
+               do n=1,mybc%itr%no_
+                  i=mybc%itr%map(1,n); j=mybc%itr%map(2,n); k=mybc%itr%map(3,n)
+                  ve%SC(i,j,k,:) = 0.0_WP*identity
+               end do
                call ve%get_bcond('bottom',mybc)
                do n=1,mybc%itr%no_
                   i=mybc%itr%map(1,n); j=mybc%itr%map(2,n); k=mybc%itr%map(3,n)
@@ -926,10 +950,10 @@ contains
                type(bcond), pointer :: mybc
                integer :: n,i,j,k
                ! Apply all other boundary conditions
-               call fs%get_bcond('top',mybc)
+               call fs%get_bcond('inflow',mybc)
                do n=1,mybc%itr%no_
                   i=mybc%itr%map(1,n); j=mybc%itr%map(2,n); k=mybc%itr%map(3,n)
-                  fs%U(i,j,k) = cavitySpeed ; fs%rhoU(i,j,k) = rho*cavitySpeed
+                  fs%U(i,j,k) = inflowVelocity ; fs%rhoU(i,j,k) = rho*inflowVelocity
                   fs%V(i-1,j,k) = 0.0_WP ; fs%rhoV(i-1,j,k) = rho*0.0_WP
                end do
                call fs%get_bcond('bottom',mybc)
