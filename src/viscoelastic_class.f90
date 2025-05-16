@@ -292,11 +292,11 @@ contains
 
    !> Assume SC is phiC
    !> Get C from phiC
-   subroutine getCFtensor(this,D,phi,C)
+   subroutine getCFtensor(this,O,phi,C)
       implicit none
       class(viscoelastic), intent(inout) :: this
       real(WP), dimension(this%cfg%imino_:this%cfg%imaxo_,this%cfg%jmino_:this%cfg%jmaxo_,this%cfg%kmino_:this%cfg%kmaxo_), intent(in) :: phi
-      real(WP), dimension(this%cfg%imino_:this%cfg%imaxo_,this%cfg%jmino_:this%cfg%jmaxo_,this%cfg%kmino_:this%cfg%kmaxo_,1:6), intent(in) :: D
+      real(WP), dimension(this%cfg%imino_:this%cfg%imaxo_,this%cfg%jmino_:this%cfg%jmaxo_,this%cfg%kmino_:this%cfg%kmaxo_,1:6), intent(in) :: O
       real(WP), dimension(this%cfg%imino_:this%cfg%imaxo_,this%cfg%jmino_:this%cfg%jmaxo_,this%cfg%kmino_:this%cfg%kmaxo_,1:6), intent(out) :: C
       integer :: i,j,k
       real(WP) :: phi1
@@ -310,7 +310,7 @@ contains
                if (phi1 .lt. threshold) then
                   C(i,j,k,:) = identity
                else
-                  C(i,j,k,:) = D(i,j,k,:)/(phi1+tiny(1.0_WP))
+                  C(i,j,k,:) = O(i,j,k,:)/(phi1+tiny(1.0_WP))
                end if
             end do
          end do

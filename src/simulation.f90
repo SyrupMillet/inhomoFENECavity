@@ -605,6 +605,8 @@ contains
          call fs%get_mfr()
       end block initialize_velocity
 
+      
+      ! Initialize our volume fraction field
       initialize_volume_fraction: block
          use param, only: param_read
          use vdscalar_class, only: bcond
@@ -676,12 +678,7 @@ contains
             end do
          end block ve_bc
 
-         call ve%getCFtensor(D=ve%SC, phi=vf%SC, C=ve%tsrC)
-
-         do n=1,ve%nscalar
-            call cfg%sync(ve%SC(:,:,:,n))
-            call cfg%sync(ve%tsrC(:,:,:,n))
-         end do
+         call ve%getCFtensor(O=ve%SC, phi=vf%SC, C=ve%tsrC)
 
       end block initialize_viscoelastic
 
@@ -819,7 +816,7 @@ contains
          fs%Vold=fs%V; fs%rhoVold=fs%rhoV
          fs%Wold=fs%W; fs%rhoWold=fs%rhoW
 
-         vf%rhoold=vf%rho
+         vf%rhoold =vf%rho
          vf%SCold = vf%SC
 
          ! Remember old scalars
@@ -828,24 +825,13 @@ contains
          ! Perform sub-iterations
          do while (time%it.le.time%itmax)
 
-            ! Update density based on particle volume fraction and multi-vd
-            fs%rho=0.5_WP*(fs%rho+fs%rhoold)
-
-            ! Build mid-time velocity and momentum
-            fs%U=0.5_WP*(fs%U+fs%Uold); fs%rhoU=0.5_WP*(fs%rhoU+fs%rhoUold)
-            fs%V=0.5_WP*(fs%V+fs%Vold); fs%rhoV=0.5_WP*(fs%rhoV+fs%rhoVold)
-            fs%W=0.5_WP*(fs%W+fs%Wold); fs%rhoW=0.5_WP*(fs%rhoW+fs%rhoWold)
-
+            ! ==================== Volume Fraction Solver ==================
             ! Buid mid-time volume fraction
             vf%SC=0.5_WP*(vf%SC+vf%SCold)
 
-            ! Build mid-time scalar
-            ve%SC=0.5_WP*(ve%SC+ve%SCold)
-
-            ! ==================== Volume Fraction Solver ==================
             call vf%metric_reset()
             ! Assembly of explicit residual
-            call vf%get_drhoSCdt(resVF,fs%rhoUold,fs%rhoVold,fs%rhoWold)
+            call vf%get_drhoSCdt(resVF,fs%rhoU,fs%rhoV,fs%rhoW)
             resVF = time%dt*resVF - (2.0_WP*vf%rho*vf%SC - (vf%rho+vf%rhoold)*vf%SCold)
             !< Get temperary solution for bquick
             vfTmp = 2.0_WP*vf%SC - vf%SCold + resVF/vf%rho
@@ -881,40 +867,39 @@ contains
 
             ! ===================== Viscoelastic Solver =======================
 
+            ! Build mid-time scalar
+            ve%SC=0.5_WP*(ve%SC+ve%SCold)
+
             ! Calculate grad(U)
             call fs%get_gradu(gradu)
             ! call applyExtraGradU()
 
             call ve%metric_reset()
             scbqflag = .true.
+            call ve%get_drhoSCdt(resSC,fs%rhoU,fs%rhoV,fs%rhoW)
+            resSC=-2.0_WP*(ve%rho*ve%SC-ve%rho*ve%SCold)+time%dt*resSC
+            SCtmp=2.0_WP*ve%SC-ve%SCold+resSC
             call ve%metric_adjust(SCtmp,scbqflag)
 
-            call ve%get_drhoSCdt(resSC,fs%Uold,fs%Vold,fs%Wold)
+            call ve%get_drhoSCdt(resSC,fs%rhoU,fs%rhoV,fs%rhoW)
 
             ! Add viscoleastic source terms
-            ! viscoelastic_src: block
-            !    use viscoelastic_class, only: fenep,lptt,eptt
-            !    ! Streching and distortion term
-            !    call ve%get_CgradU(gradu,SCtmp)
-            !    ! Relaxation term
-            !    call ve%get_relax_2(resSC=SCtmp2, dt=time%dt, phi=vf%SCold)
-            ! end block viscoelastic_src
+            viscoelastic_src: block
+               use viscoelastic_class, only: fenep,lptt,eptt
+               ! Streching and distortion term
+               call ve%get_CgradU(gradU=gradu, resSC=SCtmp)
+               ! Relaxation term
+               call ve%get_relax_2(resSC=SCtmp2, dt=time%dt, phi=vf%SCold)
+            end block viscoelastic_src
 
-            do k=cfg%kmino_,cfg%kmaxo_
-               do j=cfg%jmino_,cfg%jmaxo_
-                  do i=cfg%imino_,cfg%imaxo_
-                     resSC(i,j,k,:) = time%dt*resSC(i,j,k,:) &
-                        -2.0_WP*ve%SC(i,j,k,:)+2.0_WP*ve%SCold(i,j,k,:) &
-                        +time%dt*SCtmp(i,j,k,:) &
-                        +time%dt*SCtmp2(i,j,k,:)
-                  end do
-               end do
-            end do
+            resSC= -2.0_WP*(ve%rho*ve%SC-ve%rho*ve%SCold) + time%dt*resSC + time%dt*SCtmp + time%dt*SCtmp2
 
-            call ve%solve_implicit(time%dt,resSC,fs%Uold,fs%Vold,fs%Wold)
+            call ve%solve_implicit(time%dt,resSC,fs%rhoU,fs%rhoV,fs%rhoW)
 
             ! Update scalars
-            ve%SC = 2.0_WP*ve%SC-ve%SCold+resSC
+            ve%SC=2.0_WP*ve%SC-ve%SCold+resSC
+
+            call ve%getCFtensor(O=ve%SC, phi=vf%SC, C=ve%tsrC)
 
             ! Apply all other boundary conditions on the resulting field
             call ve%apply_bcond(time%t,time%dt)
@@ -935,6 +920,11 @@ contains
             end block ve_bc
 
             ! ===================== Velocity Solver =======================
+
+            ! Build mid-time velocity and momentum
+            fs%U=0.5_WP*(fs%U+fs%Uold); fs%rhoU=0.5_WP*(fs%rhoU+fs%rhoUold)
+            fs%V=0.5_WP*(fs%V+fs%Vold); fs%rhoV=0.5_WP*(fs%rhoV+fs%rhoVold)
+            fs%W=0.5_WP*(fs%W+fs%Wold); fs%rhoW=0.5_WP*(fs%rhoW+fs%rhoWold)
 
             ! Explicit calculation of drho*u/dt from NS
             call fs%get_dmomdt(resU,resV,resW)
@@ -1087,7 +1077,7 @@ contains
          call computeDiffU()
          call getPolyDissolved()
 
-         call ve%getCFtensor(D=ve%SC, phi=vf%SC, C=ve%tsrC)
+         call ve%getCFtensor(O=ve%SC, phi=vf%SC, C=ve%tsrC)
 
          ! Output to ensight
          if (ens_evt%occurs()) then
