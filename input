@@ -3,33 +3,33 @@ Partition : 1 8 1
 
 # Mesh definition
 Lx : 0.001
-Ly : 0.0005
-Lz : 0.000006
-nx : 256
+Ly : 0.001
+Lz : 0.00001
+nx : 128
 ny : 128
 nz : 1
 
-percent of plate in Lx : 0.8
+percent of plate in Lx : 0.9
 
 # Solvent properties
 Dynamic viscosity:          0.01                # \eta_s
-Density :                   1000
+Density :                   760
 
-inflow velocity : 0.1                           # U
+inflow velocity : 0.05                           # U
 
 # Polymer field
 Polymer interface concentration : 0.2       
-diffusion coefficient : 5e-6                    # D
+diffusion coefficient : 5e-8                    # D
 
 # Non-Newtonian modeling                
-Polymer relaxation time :       1.0            # \lambda_r
-Maximum polymer extensibility : 10               # L
+Polymer relaxation time :       0.1            # \lambda_r
+Maximum polymer extensibility : 50               # L
 Max polymer-contributed viscosity : 1.0         # \eta_p
 
 # Time integration
-Max timestep size : 1e-5
+Max timestep size : 5e-5
 Max cfl number :    0.95
-Max time :          10
+Max time :          0.1
 
 # Ensight output
 Ensight output period : 1e-4

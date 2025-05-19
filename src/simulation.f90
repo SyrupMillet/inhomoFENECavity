@@ -325,7 +325,8 @@ contains
       integer, intent(in) :: i,j,k
       logical :: isIn, isflatPlate
       isIn=.false.
-      if ((cfg%xm(i).gt.0.5_WP*(1.0_WP-percentOccupied)*Lx).and.(cfg%xm(i).lt.0.5_WP*(1.0_WP+percentOccupied)*Lx)) then
+      ! if ((cfg%xm(i).gt.0.5_WP*(1.0_WP-percentOccupied)*Lx).and.(cfg%xm(i).lt.0.5_WP*(1.0_WP+percentOccupied)*Lx)) then
+      if ((cfg%xm(i).gt.0.5_WP*(1.0_WP-percentOccupied)*Lx)) then
          isflatPlate = .true.
       else
          isflatPlate = .false.
@@ -381,7 +382,8 @@ contains
       integer, intent(in) :: i,j,k
       logical :: isIn, isflatPlate
       isIn=.false.
-      if ((cfg%xm(i).gt.0.5_WP*(1.0_WP-percentOccupied)*Lx).and.(cfg%xm(i).lt.0.5_WP*(1.0_WP+percentOccupied)*Lx)) then
+      !if ((cfg%xm(i).gt.0.5_WP*(1.0_WP-percentOccupied)*Lx).and.(cfg%xm(i).lt.0.5_WP*(1.0_WP+percentOccupied)*Lx)) then
+      if ((cfg%xm(i).gt.0.5_WP*(1.0_WP-percentOccupied)*Lx)) then
          isflatPlate = .true.
       else
          isflatPlate = .false.
@@ -464,7 +466,7 @@ contains
          !call fs%add_bcond(name='flatPlate',type=dirichlet         ,locator=bottom_of_domain,face='y',dir=-1,canCorrect=.false.)
          call fs%add_bcond(name='flatPlate',type=dirichlet      ,locator=flatPlate,face='y',dir=-1,canCorrect=.false.)
          call fs%add_bcond(name='flatPlatefront',type=clipped_neumann,locator=flatPlate_front,face='y',dir=-1,canCorrect=.true.)
-         call fs%add_bcond(name='flatPlateback',type=clipped_neumann,locator=flatPlate_back,face='y',dir=-1,canCorrect=.true.)
+         ! call fs%add_bcond(name='flatPlateback',type=clipped_neumann,locator=flatPlate_back,face='y',dir=-1,canCorrect=.true.)
 
          ! Assign constant viscosity
          call param_read('Dynamic viscosity',visc); fs%visc=visc
@@ -493,7 +495,7 @@ contains
          !call vf%add_bcond(name='flatPlate',type=dirichlet      ,locator=bottom_of_domainsc,dir='y-')
          call vf%add_bcond(name='flatPlate',type=dirichlet      ,locator=flatPlatesc,dir='y-')
          call vf%add_bcond(name='flatPlatefront',type=neumann,locator=flatPlate_frontsc,dir='y-')
-         call vf%add_bcond(name='flatPlateback',type=neumann,locator=flatPlate_backsc,dir='y-')
+         ! call vf%add_bcond(name='flatPlateback',type=neumann,locator=flatPlate_backsc,dir='y-')
 
          ! Configure implicit scalar solver
          vfs = ddadi(cfg=cfg,name='Volume fraction',nst=13)
@@ -516,7 +518,7 @@ contains
          ! call ve%add_bcond(name='flatPlate',type=dirichlet      ,locator=bottom_of_domainsc,dir='y-')
          call ve%add_bcond(name='flatPlate',type=dirichlet      ,locator=flatPlatesc,dir='y-')
          call ve%add_bcond(name='flatPlatefront',type=neumann,locator=flatPlate_frontsc,dir='y-')
-         call ve%add_bcond(name='flatPlateback',type=neumann,locator=flatPlate_backsc,dir='y-')
+         ! call ve%add_bcond(name='flatPlateback',type=neumann,locator=flatPlate_backsc,dir='y-')
 
          ! Maximum extensibility of polymer chain
          call param_read('Maximum polymer extensibility',ve%Lmax)
@@ -830,20 +832,20 @@ contains
             vf%SC=0.5_WP*(vf%SC+vf%SCold)
 
             call vf%metric_reset()
-            ! Assembly of explicit residual
-            call vf%get_drhoSCdt(resVF,fs%rhoU,fs%rhoV,fs%rhoW)
-            resVF = time%dt*resVF - (2.0_WP*vf%rho*vf%SC - (vf%rho+vf%rhoold)*vf%SCold)
-            !< Get temperary solution for bquick
-            vfTmp = 2.0_WP*vf%SC - vf%SCold + resVF/vf%rho
+            ! ! Assembly of explicit residual
+            ! call vf%get_drhoSCdt(resVF,fs%U,fs%V,fs%W)
+            ! resVF = time%dt*resVF - (2.0_WP*vf%SC - 2.0_WP*vf%SCold)
+            ! !< Get temperary solution for bquick
+            ! vfTmp = 2.0_WP*vf%SC - vf%SCold + resVF
             vfbqflag = .true.
 
             ! Adjust metrics
             call vf%metric_adjust(vfTmp, vfbqflag)
-            ! re-Assemble explicit residual
-            call vf%get_drhoSCdt(resVF,fs%rhoU,fs%rhoV,fs%rhoW)
-            resVF = time%dt*resVF - (2.0_WP*vf%rho*vf%SC - (vf%rho+vf%rhoold)*vf%SCold)
+            ! re-Assemble explicit residual dSC/dt
+            call vf%get_drhoSCdt(resVF,fs%U,fs%V,fs%W)
+            resVF = time%dt*resVF - (2.0_WP*vf%SC - 2.0_WP*vf%SCold)
             ! solve implicitlly
-            call vf%solve_implicit(time%dt,resVF,fs%rhoU,fs%rhoV,fs%rhoW)
+            call vf%solve_implicit(time%dt,resVF,fs%U,fs%V,fs%W)
             ! Apply these residuals
             vf%SC = 2.0_WP*vf%SC - vf%SCold + resVF
             ! Apply boundary conditions
@@ -876,25 +878,28 @@ contains
 
             call ve%metric_reset()
             scbqflag = .true.
-            call ve%get_drhoSCdt(resSC,fs%rhoU,fs%rhoV,fs%rhoW)
-            resSC=-2.0_WP*(ve%rho*ve%SC-ve%rho*ve%SCold)+time%dt*resSC
-            SCtmp=2.0_WP*ve%SC-ve%SCold+resSC
+            ! call ve%get_drhoSCdt(resSC,fs%rhoU,fs%rhoV,fs%rhoW)
+            ! resSC=-2.0_WP*(ve%rho*ve%SC-ve%rho*ve%SCold)+time%dt*resSC
+            ! SCtmp=2.0_WP*ve%SC-ve%SCold+resSC
             call ve%metric_adjust(SCtmp,scbqflag)
 
-            call ve%get_drhoSCdt(resSC,fs%rhoU,fs%rhoV,fs%rhoW)
+            ! get dSC/dt
+            call ve%get_drhoSCdt(resSC,fs%U,fs%V,fs%W)
 
             ! Add viscoleastic source terms
             viscoelastic_src: block
-               use viscoelastic_class, only: fenep,lptt,eptt
+               use viscoelastic_class, only: fenep
                ! Streching and distortion term
                call ve%get_CgradU(gradU=gradu, resSC=SCtmp)
                ! Relaxation term
-               call ve%get_relax_2(resSC=SCtmp2, dt=time%dt, phi=vf%SCold)
+               call ve%get_relax_2(resSC=SCtmp2, dt=time%dt, phi=vf%SC)
             end block viscoelastic_src
 
-            resSC= -2.0_WP*(ve%rho*ve%SC-ve%rho*ve%SCold) + time%dt*resSC + time%dt*SCtmp + time%dt*SCtmp2
+            ! explicit get residual dSC
+            resSC= -2.0_WP*(ve%SC-ve%SCold) + time%dt*resSC &
+                  &+ time%dt*SCtmp + time%dt*SCtmp2
 
-            call ve%solve_implicit(time%dt,resSC,fs%rhoU,fs%rhoV,fs%rhoW)
+            call ve%solve_implicit(time%dt,resSC,fs%U,fs%V,fs%W)
 
             ! Update scalars
             ve%SC=2.0_WP*ve%SC-ve%SCold+resSC
@@ -928,11 +933,6 @@ contains
 
             ! Explicit calculation of drho*u/dt from NS
             call fs%get_dmomdt(resU,resV,resW)
-
-            ! Assemble explicit residual
-            resU=time%dt*resU-(2.0_WP*fs%rhoU-2.0_WP*fs%rhoUold)
-            resV=time%dt*resV-(2.0_WP*fs%rhoV-2.0_WP*fs%rhoVold)
-            resW=time%dt*resW-(2.0_WP*fs%rhoW-2.0_WP*fs%rhoWold)
 
             ! Add polymer stress term
             polymer_stress: block
@@ -999,19 +999,24 @@ contains
                      do i=fs%cfg%imin_,fs%cfg%imax_
                         if (fs%umask(i,j,k).eq.0) resU(i,j,k)=resU(i,j,k)+(sum(fs%divu_x(:,i,j,k)*stress(i-1:i,j,k,1))&
                         &                                                 +sum(fs%divu_y(:,i,j,k)*Txy(i,j:j+1,k))     &
-                        &                                                 +sum(fs%divu_z(:,i,j,k)*Tzx(i,j,k:k+1)))*time%dt
+                        &                                                 +sum(fs%divu_z(:,i,j,k)*Tzx(i,j,k:k+1)))
                         if (fs%vmask(i,j,k).eq.0) resV(i,j,k)=resV(i,j,k)+(sum(fs%divv_x(:,i,j,k)*Txy(i:i+1,j,k))     &
                         &                                                 +sum(fs%divv_y(:,i,j,k)*stress(i,j-1:j,k,4))&
-                        &                                                 +sum(fs%divv_z(:,i,j,k)*Tyz(i,j,k:k+1)))*time%dt
+                        &                                                 +sum(fs%divv_z(:,i,j,k)*Tyz(i,j,k:k+1)))
                         if (fs%wmask(i,j,k).eq.0) resW(i,j,k)=resW(i,j,k)+(sum(fs%divw_x(:,i,j,k)*Tzx(i:i+1,j,k))     &
                         &                                                 +sum(fs%divw_y(:,i,j,k)*Tyz(i,j:j+1,k))     &
-                        &                                                 +sum(fs%divw_z(:,i,j,k)*stress(i,j,k-1:k,6)))*time%dt
+                        &                                                 +sum(fs%divw_z(:,i,j,k)*stress(i,j,k-1:k,6)))
                      end do
                   end do
                end do
                ! Clean up
                deallocate(Txy,Tyz,Tzx)
             end block polymer_stress
+
+            ! Assemble explicit residual
+            resU=time%dt*resU-(2.0_WP*fs%rhoU-2.0_WP*fs%rhoUold)
+            resV=time%dt*resV-(2.0_WP*fs%rhoV-2.0_WP*fs%rhoVold)
+            resW=time%dt*resW-(2.0_WP*fs%rhoW-2.0_WP*fs%rhoWold)
 
             ! Form implicit residuals
             call fs%solve_implicit(time%dtmid,resU,resV,resW)
@@ -1021,9 +1026,10 @@ contains
             fs%V=2.0_WP*fs%V-fs%Vold+resV
             fs%W=2.0_WP*fs%W-fs%Wold+resW
 
-            ! Apply other boundary conditions and update momentum
+            ! update momentum
             call fs%rho_multiply()
 
+            ! Apply boundary conditions
             call fs%apply_bcond(time%t,time%dt)
             fs_bc : block
                use lowmach_class, only: bcond
@@ -1046,7 +1052,7 @@ contains
 
             ! Solve Poisson equation
             call fs%correct_mfr(drhodt=resRHO)
-            call fs%rho_divide()
+            ! call fs%rho_divide()
             call fs%get_div(drhodt=resRHO)
             fs%psolv%rhs=-fs%cfg%vol*fs%div/time%dtmid
             fs%psolv%sol=0.0_WP
