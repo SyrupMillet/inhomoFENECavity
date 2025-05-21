@@ -17,9 +17,9 @@ module simulation
    private
 
    !> Get an LPT solver, a lowmach solver, and corresponding time tracker, plus a couple of linear solvers
-   type(hypre_str),     public :: ps
+   type(hypre_str),     public :: ps, vs
    type(viscoelastic),  public :: ve
-   type(ddadi),         public :: vs, vfs, ves
+   type(ddadi),         public :: vfs, ves
    type(lowmach),       public :: fs
    type(vdscalar),      public :: vf        ! polymer Volume fraction scalar solver
    type(timetracker),   public :: time
@@ -474,11 +474,14 @@ contains
          call param_read('Density',rho); fs%rho=rho
          ! Configure pressure solver
          ps=hypre_str(cfg=cfg,name='Pressure',method=pcg_pfmg2,nst=7)
-         ps%maxlevel=18
+         ps%maxlevel=3
          call param_read('Pressure iteration',ps%maxit)
          call param_read('Pressure tolerance',ps%rcvg)
          ! Configure implicit velocity solver
-         vs=ddadi(cfg=cfg,name='Velocity',nst=7)
+         vs=hypre_str(cfg=cfg,name='Velocity',method=pcg_pfmg2,nst=7)
+         vs%maxlevel=3
+         call param_read('Implicit iteration',vs%maxit)
+         call param_read('Implicit tolerance',vs%rcvg)
          ! Setup the solver
          call fs%setup(pressure_solver=ps,implicit_solver=vs)
       end block create_flow_solver
@@ -591,7 +594,7 @@ contains
          do n=1,mybc%itr%no_
             i=mybc%itr%map(1,n); j=mybc%itr%map(2,n); k=mybc%itr%map(3,n)
             fs%U(i,j,k) = inflowVelocity ; fs%rhoU(i,j,k) = rho*inflowVelocity
-            fs%V(i-1,j,k) = 0.0_WP ; fs%rhoV(i-1,j,k) = rho*0.0_WP
+            fs%V(i,j,k) = 0.0_WP ; fs%rhoV(i,j,k) = rho*0.0_WP
          end do
          call fs%get_bcond('flatPlate',mybc)
          do n=1,mybc%itr%no_
@@ -874,7 +877,7 @@ contains
 
             ! Calculate grad(U)
             call fs%get_gradu(gradu)
-            ! call applyExtraGradU()
+            call applyExtraGradU()
 
             call ve%metric_reset()
             scbqflag = .true.
@@ -1040,7 +1043,7 @@ contains
                do n=1,mybc%itr%no_
                   i=mybc%itr%map(1,n); j=mybc%itr%map(2,n); k=mybc%itr%map(3,n)
                   fs%U(i,j,k) = inflowVelocity ; fs%rhoU(i,j,k) = rho*inflowVelocity
-                  fs%V(i-1,j,k) = 0.0_WP ; fs%rhoV(i-1,j,k) = rho*0.0_WP
+                  fs%V(i,j,k) = 0.0_WP ; fs%rhoV(i,j,k) = rho*0.0_WP
                end do
                call fs%get_bcond('flatPlate',mybc)
                do n=1,mybc%itr%no_

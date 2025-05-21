@@ -9,30 +9,30 @@ nx : 128
 ny : 128
 nz : 1
 
-percent of plate in Lx : 0.9
+percent of plate in Lx : 1.0
 
 # Solvent properties
-Dynamic viscosity:          0.01                # \eta_s
+Dynamic viscosity:          0.001                # \eta_s
 Density :                   760
 
 inflow velocity : 0.05                           # U
 
 # Polymer field
-Polymer interface concentration : 0.2       
+Polymer interface concentration : 0.3       
 diffusion coefficient : 5e-8                    # D
 
 # Non-Newtonian modeling                
-Polymer relaxation time :       0.1            # \lambda_r
-Maximum polymer extensibility : 50               # L
-Max polymer-contributed viscosity : 1.0         # \eta_p
+Polymer relaxation time :       1.0            # \lambda_r
+Maximum polymer extensibility : 10               # L
+Max polymer-contributed viscosity : 5.0         # \eta_p
 
 # Time integration
 Max timestep size : 5e-5
 Max cfl number :    0.95
-Max time :          0.1
+Max time :          20.0
 
 # Ensight output
-Ensight output period : 1e-4
+Ensight output period : 1e-2
 
 # Pressure solver
 Pressure tolerance : 	1e-6
