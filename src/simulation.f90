@@ -455,7 +455,7 @@ contains
 
       ! Create a low Mach flow solver with bconds
       create_flow_solver: block
-         use hypre_str_class, only: pcg_pfmg2
+         use hypre_str_class, only: pcg_pfmg2, gmres_smg
          use lowmach_class,   only: dirichlet,clipped_neumann, neumann, slip
          ! Create flow solver
          fs=lowmach(cfg=cfg,name='Variable density low Mach NS')
@@ -474,12 +474,12 @@ contains
          call param_read('Density',rho); fs%rho=rho
          ! Configure pressure solver
          ps=hypre_str(cfg=cfg,name='Pressure',method=pcg_pfmg2,nst=7)
-         ps%maxlevel=3
+         ps%maxlevel=6
          call param_read('Pressure iteration',ps%maxit)
          call param_read('Pressure tolerance',ps%rcvg)
          ! Configure implicit velocity solver
-         vs=hypre_str(cfg=cfg,name='Velocity',method=pcg_pfmg2,nst=7)
-         vs%maxlevel=3
+         vs=hypre_str(cfg=cfg,name='Velocity',method=gmres_smg,nst=7)
+         vs%maxlevel=6
          call param_read('Implicit iteration',vs%maxit)
          call param_read('Implicit tolerance',vs%rcvg)
          ! Setup the solver
@@ -599,7 +599,7 @@ contains
          call fs%get_bcond('flatPlate',mybc)
          do n=1,mybc%itr%no_
             i=mybc%itr%map(1,n); j=mybc%itr%map(2,n); k=mybc%itr%map(3,n)
-            fs%U(i,j,k) = 0.0_WP ; fs%rhoU(i,j,k) = rho*0.0_WP
+            fs%U(i,j-1,k) = 0.0_WP ; fs%rhoU(i,j-1,k) = rho*0.0_WP
             fs%V(i,j,k) = 0.0_WP ; fs%rhoV(i,j,k) = rho*0.0_WP
          end do
          call fs%interp_vel(Ui,Vi,Wi)
@@ -772,7 +772,7 @@ contains
 
          charL = 0.5_WP*Lx*percentOccupied
          ! Reynolds number for flat plate
-         Re = rho*inflowVelocity*charL/visc
+         Re = rho*inflowVelocity*Lx/visc
          ! Get boundary layer thickness from Blasius solution
          delta = 4.99_WP*charL/sqrt(Re)
          ! Get shear rate
@@ -1048,7 +1048,7 @@ contains
                call fs%get_bcond('flatPlate',mybc)
                do n=1,mybc%itr%no_
                   i=mybc%itr%map(1,n); j=mybc%itr%map(2,n); k=mybc%itr%map(3,n)
-                  fs%U(i,j,k) = 0.0_WP ; fs%rhoU(i,j,k) = rho*0.0_WP
+                  fs%U(i,j-1,k) = 0.0_WP ; fs%rhoU(i,j-1,k) = rho*0.0_WP
                   fs%V(i,j,k) = 0.0_WP ; fs%rhoV(i,j,k) = rho*0.0_WP
                end do
             end block fs_bc
