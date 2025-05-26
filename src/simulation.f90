@@ -478,7 +478,7 @@ contains
          call param_read('Pressure iteration',ps%maxit)
          call param_read('Pressure tolerance',ps%rcvg)
          ! Configure implicit velocity solver
-         vs=hypre_str(cfg=cfg,name='Velocity',method=gmres_smg,nst=7)
+         vs=hypre_str(cfg=cfg,name='Velocity',method=pcg_pfmg2,nst=7)
          vs%maxlevel=6
          call param_read('Implicit iteration',vs%maxit)
          call param_read('Implicit tolerance',vs%rcvg)
@@ -594,11 +594,13 @@ contains
          do n=1,mybc%itr%no_
             i=mybc%itr%map(1,n); j=mybc%itr%map(2,n); k=mybc%itr%map(3,n)
             fs%U(i,j,k) = inflowVelocity ; fs%rhoU(i,j,k) = rho*inflowVelocity
-            fs%V(i,j,k) = 0.0_WP ; fs%rhoV(i,j,k) = rho*0.0_WP
+            ! make sure bc is applied outside the domain
+            fs%V(i-1,j,k) = 0.0_WP ; fs%rhoV(i-1,j,k) = rho*0.0_WP
          end do
          call fs%get_bcond('flatPlate',mybc)
          do n=1,mybc%itr%no_
             i=mybc%itr%map(1,n); j=mybc%itr%map(2,n); k=mybc%itr%map(3,n)
+            ! make sure bc is applied outside the domain
             fs%U(i,j-1,k) = 0.0_WP ; fs%rhoU(i,j-1,k) = rho*0.0_WP
             fs%V(i,j,k) = 0.0_WP ; fs%rhoV(i,j,k) = rho*0.0_WP
          end do
@@ -717,6 +719,7 @@ contains
          call fs%get_cfl(time%dt,time%cfl)
          call fs%get_max()
          call vf%get_max()
+         call ve%get_max()
          ! Create simulation monitor
          mfile=monitor(fs%cfg%amRoot,'simulation')
          call mfile%add_column(time%n,'Timestep number')
@@ -743,14 +746,14 @@ contains
          call cflfile%add_column(fs%CFLv_z,'Viscous zCFL')
          call cflfile%write()
          ! Create scalar monitor
-         ! scfile=monitor(ve%cfg%amRoot,'scalar')
-         ! call scfile%add_column(time%n,'Timestep number')
-         ! call scfile%add_column(time%t,'Time')
-         ! do nsc=1,ve%nscalar
-         !    call scfile%add_column(ve%SCrecmin(nsc),trim(ve%SCname(nsc))//'_min')
-         !    call scfile%add_column(ve%SCrecmax(nsc),trim(ve%SCname(nsc))//'_max')
-         ! end do
-         ! call scfile%write()
+         scfile=monitor(ve%cfg%amRoot,'scalar')
+         call scfile%add_column(time%n,'Timestep number')
+         call scfile%add_column(time%t,'Time')
+         do nsc=1,ve%nscalar
+            call scfile%add_column(ve%SCmin(nsc),trim(ve%SCname(nsc))//'_min')
+            call scfile%add_column(ve%SCmax(nsc),trim(ve%SCname(nsc))//'_max')
+         end do
+         call scfile%write()
          ! Create Diffusion monitor
          Difffile=monitor(vf%cfg%amRoot,'Diffusion')
          call Difffile%add_column(time%n,'Timestep number')
@@ -1043,7 +1046,7 @@ contains
                do n=1,mybc%itr%no_
                   i=mybc%itr%map(1,n); j=mybc%itr%map(2,n); k=mybc%itr%map(3,n)
                   fs%U(i,j,k) = inflowVelocity ; fs%rhoU(i,j,k) = rho*inflowVelocity
-                  fs%V(i,j,k) = 0.0_WP ; fs%rhoV(i,j,k) = rho*0.0_WP
+                  fs%V(i-1,j,k) = 0.0_WP ; fs%rhoV(i-1,j,k) = rho*0.0_WP
                end do
                call fs%get_bcond('flatPlate',mybc)
                do n=1,mybc%itr%no_
@@ -1093,12 +1096,17 @@ contains
             call ens_out%write_data(time%t)
          end if
 
+         ! if (time%t.ge.10.0_WP) then
+         !    ens_evt%tper = 2e-4_WP
+         ! end if
+
          ! Perform and output monitoring
          call fs%get_max()
          call vf%get_max()
+         call ve%get_max()
          call mfile%write()
          call cflfile%write()
-         ! call scfile%write()
+         call scfile%write()
          call Difffile%write()
       end do
 
