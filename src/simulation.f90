@@ -263,7 +263,7 @@ contains
                if (j .eq. cfg%jmin) then
                   ! get the polymer flux in y direction
                   fy = -sum(vf%itp_y(:,i,j,k)*vf%diff(i,j-1:j,k))*sum(vf%grdsc_y(:,i,j,k)*vf%SC(i,j-1:j,k))
-                  phi2local = phi2local + fy
+                  phi2local = phi2local + fy*cfg%dxm(i)
                end if
             end do
          end do
@@ -462,7 +462,7 @@ contains
          ! Define bc
          call fs%add_bcond(name='inflow',type=dirichlet         ,locator=left_of_domain ,face='x',dir=-1,canCorrect=.false.)
          call fs%add_bcond(name='outflow',type=clipped_neumann  ,locator=right_of_domain,face='x',dir=+1,canCorrect=.true.)
-         call fs%add_bcond(name='top',type=slip           ,locator=top_of_domain,face='y',dir=+1,canCorrect=.false.)
+         call fs%add_bcond(name='top',type=clipped_neumann           ,locator=top_of_domain,face='y',dir=+1,canCorrect=.true.)
          !call fs%add_bcond(name='flatPlate',type=dirichlet         ,locator=bottom_of_domain,face='y',dir=-1,canCorrect=.false.)
          call fs%add_bcond(name='flatPlate',type=dirichlet      ,locator=flatPlate,face='y',dir=-1,canCorrect=.false.)
          call fs%add_bcond(name='flatPlatefront',type=clipped_neumann,locator=flatPlate_front,face='y',dir=-1,canCorrect=.true.)
