@@ -49,6 +49,8 @@ module simulation
    logical, dimension(:,:,:), allocatable :: scbqflag
    real(WP), dimension(:,:,:,:),   allocatable :: stress
    real(WP), dimension(:,:,:,:,:), allocatable :: gradU
+   real(WP), dimension(:,:,:), allocatable :: tauxy
+   real(WP), dimension(:,:,:,:), allocatable :: SR
 
    real(WP) :: inflowVelocity
    real(WP) :: surfaceConc
@@ -65,6 +67,8 @@ module simulation
 
 
    real(WP) :: polyDissolved, polyDisRate
+   real(WP) :: polyDisRate25, polyDisRate50, polyDisRate75, polyDisRate100
+   real(WP) :: polyDissolved25, polyDissolved50, polyDissolved75, polyDissolved100
 
 
 contains
@@ -254,23 +258,44 @@ contains
       use parallel, only: MPI_REAL_WP
       use mpi_f08, only:  MPI_ALLREDUCE, MPI_SUM
       integer :: i,j,k, ierr
-      real(WP) :: phi2local, phi2sum, fy
+      real(WP) :: fy, xp
+      real(WP) :: mypolyDisRate25, mypolyDisRate50, mypolyDisRate75, mypolyDisRate100
 
-      phi2local = 0.0_WP
+      mypolyDisRate25 = 0.0_WP ; mypolyDisRate50 = 0.0_WP ; mypolyDisRate75 = 0.0_WP ; mypolyDisRate100 = 0.0_WP
+
       do k=cfg%kmin_,cfg%kmax_
          do j=cfg%jmin_,cfg%jmax_
             do i=cfg%imin_,cfg%imax_
                if (j .eq. cfg%jmin) then
                   ! get the polymer flux in y direction
                   fy = -sum(vf%itp_y(:,i,j,k)*vf%diff(i,j-1:j,k))*sum(vf%grdsc_y(:,i,j,k)*vf%SC(i,j-1:j,k))
-                  phi2local = phi2local + fy*cfg%dxm(i)
+                  fy = fy*cfg%dxm(i)
+                  xp = cfg%xm(i) ; xp = xp/Lx ! normalize to Lx
+                  if ((xp.ge.0.0_WP).and.(xp.lt.0.25_WP)) then
+                     mypolyDisRate25 = mypolyDisRate25 + fy
+                  else if ((xp.ge.0.25_WP).and.(xp.lt.0.50_WP)) then
+                     mypolyDisRate50 = mypolyDisRate50 + fy
+                  else if ((xp.ge.0.50_WP).and.(xp.lt.0.75_WP)) then
+                     mypolyDisRate75 = mypolyDisRate75 + fy
+                  else if ((xp.ge.0.75_WP).and.(xp.lt.1.0_WP)) then
+                     mypolyDisRate100 = mypolyDisRate100 + fy
+                  end if
                end if
             end do
          end do
       end do
 
-      call MPI_ALLREDUCE(phi2local, phi2sum, 1, MPI_REAL_WP, MPI_SUM, cfg%comm, ierr)
-      polyDisRate = phi2sum
+      call MPI_ALLREDUCE(mypolyDisRate25, polyDisRate25, 1, MPI_REAL_WP, MPI_SUM, cfg%comm, ierr)
+      call MPI_ALLREDUCE(mypolyDisRate50, polyDisRate50, 1, MPI_REAL_WP, MPI_SUM, cfg%comm, ierr)
+      call MPI_ALLREDUCE(mypolyDisRate75, polyDisRate75, 1, MPI_REAL_WP, MPI_SUM, cfg%comm, ierr)
+      call MPI_ALLREDUCE(mypolyDisRate100, polyDisRate100, 1, MPI_REAL_WP, MPI_SUM, cfg%comm, ierr)
+
+      polyDissolved25 = polyDissolved25 + polyDisRate25*time%dt
+      polyDissolved50 = polyDissolved50 + polyDisRate50*time%dt
+      polyDissolved75 = polyDissolved75 + polyDisRate75*time%dt
+      polyDissolved100 = polyDissolved100 + polyDisRate100*time%dt
+
+      polyDisRate = polyDissolved25 + polyDissolved50 + polyDissolved75 + polyDissolved100
       polyDissolved = polyDissolved + polyDisRate*time%dt
 
    end subroutine getPolyDissolved
@@ -574,6 +599,9 @@ contains
          allocate(scbqflag(cfg%imino_:cfg%imaxo_,cfg%jmino_:cfg%jmaxo_,cfg%kmino_:cfg%kmaxo_))
 
          allocate(polyVisc(cfg%imino_:cfg%imaxo_,cfg%jmino_:cfg%jmaxo_,cfg%kmino_:cfg%kmaxo_))
+
+         allocate(tauxy(cfg%imino_:cfg%imaxo_,cfg%jmino_:cfg%jmaxo_,cfg%kmino_:cfg%kmaxo_))
+         allocate(SR (6,cfg%imino_:cfg%imaxo_,cfg%jmino_:cfg%jmaxo_,cfg%kmino_:cfg%kmaxo_))
       end block allocate_work_arrays
 
       ! Initialize our velocity field
@@ -612,7 +640,7 @@ contains
          call fs%get_mfr()
       end block initialize_velocity
 
-      
+
       ! Initialize our volume fraction field
       initialize_volume_fraction: block
          use param, only: param_read
@@ -705,6 +733,7 @@ contains
          call ens_out%add_scalar('polyVisc',polyVisc)
          call ens_out%add_scalar('divergence',fs%div)
          call ens_out%add_scalar('volumefraction',vf%SC)
+         call ens_out%add_scalar('tauxy',tauxy)
          do nsc=1,ve%nscalar
             call ens_out%add_scalar(trim(ve%SCname(nsc)),ve%SC(:,:,:,nsc))
             call ens_out%add_scalar(trim(ve%tsrCname(nsc)),ve%tsrC(:,:,:,nsc))
@@ -758,8 +787,16 @@ contains
          Difffile=monitor(vf%cfg%amRoot,'Diffusion')
          call Difffile%add_column(time%n,'Timestep number')
          call Difffile%add_column(time%t,'Time')
-         call Difffile%add_column(polyDissolved,'PolyDissolved')
          call Difffile%add_column(polyDisRate,'PolyDisRate')
+         call Difffile%add_column(polyDissolved,'PolyDissolved')
+         call Difffile%add_column(polyDisRate25,'PolyDisRate Part1')
+         call Difffile%add_column(polyDisRate50,'PolyDisRate Part2')
+         call Difffile%add_column(polyDisRate75,'PolyDisRate Part3')
+         call Difffile%add_column(polyDisRate100,'PolyDisRate Part4')
+         call Difffile%add_column(polyDissolved25,'PolyDissolved Part1')
+         call Difffile%add_column(polyDissolved50,'PolyDissolved Part2')
+         call Difffile%add_column(polyDissolved75,'PolyDissolved Part3')
+         call Difffile%add_column(polyDissolved100,'PolyDissolved Part4')
          call Difffile%write()
       end block create_monitor
 
@@ -903,7 +940,7 @@ contains
 
             ! explicit get residual dSC
             resSC= -2.0_WP*(ve%SC-ve%SCold) + time%dt*resSC &
-                  &+ time%dt*SCtmp + time%dt*SCtmp2
+            &+ time%dt*SCtmp + time%dt*SCtmp2
 
             call ve%solve_implicit(time%dt,resSC,fs%U,fs%V,fs%W)
 
@@ -940,6 +977,16 @@ contains
             ! Explicit calculation of drho*u/dt from NS
             call fs%get_dmomdt(resU,resV,resW)
 
+            ! Get strainrate and stress tensor xy
+            call fs%get_strainrate(SR)
+            do k=cfg%kmino_,cfg%kmaxo_
+               do j=cfg%jmino_,cfg%jmaxo_
+                  do i=cfg%imino_,cfg%imaxo_
+                     tauxy(i,j,k) = 2.0_WP * fs%visc(i,j,k) * SR(4,i,j,k) !> xy component of stress tensor
+                  end do
+               end do
+            end do
+
             ! Add polymer stress term
             polymer_stress: block
                use viscoelastic_class, only: fenep,lptt,eptt, oldroydb
@@ -967,24 +1014,7 @@ contains
                            do n=1,6
                               stress(i,j,k,n)=-ve%visc_p*stress(i,j,k,n)
                            end do
-                        end do
-                     end do
-                  end do
-                case (eptt,lptt)
-                  stress=0.0_WP
-                  coeff=ve%visc_p/(ve%trelax*(1-ve%affinecoeff))
-                  do n=1,6
-                     do k=cfg%kmino_,cfg%kmaxo_
-                        do j=cfg%jmino_,cfg%jmaxo_
-                           do i=cfg%imino_,cfg%imaxo_
-                              if (ve%mask(i,j,k).ne.0) cycle                !< Skip non-solved cells
-                              stress(i,j,k,1)=coeff*(ve%SC(i,j,k,1)-1.0_WP) !> xx tensor component
-                              stress(i,j,k,2)=coeff*(ve%SC(i,j,k,2)-0.0_WP) !> xy tensor component
-                              stress(i,j,k,3)=coeff*(ve%SC(i,j,k,3)-0.0_WP) !> xz tensor component
-                              stress(i,j,k,4)=coeff*(ve%SC(i,j,k,4)-1.0_WP) !> yy tensor component
-                              stress(i,j,k,5)=coeff*(ve%SC(i,j,k,5)-0.0_WP) !> yz tensor component
-                              stress(i,j,k,6)=coeff*(ve%SC(i,j,k,6)-1.0_WP) !> zz tensor component
-                           end do
+                           tauxy(i,j,k) = tauxy(i,j,k) + stress(i,j,k,2) !> xy component of stress tensor
                         end do
                      end do
                   end do

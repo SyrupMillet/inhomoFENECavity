@@ -32,7 +32,7 @@ Max cfl number :    0.95
 Max time :          50.0
 
 # Ensight output
-Ensight output period : 1e-1
+Ensight output period : 1e-3
 
 # Pressure solver
 Pressure tolerance : 	1e-6
